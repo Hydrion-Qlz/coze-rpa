@@ -60,9 +60,8 @@ async def get_task_status():
     
     # Check if current task is done and start next one if needed
     if task_manager.status.value == "running" and task_manager.check_if_current_task_done():
-        # Task is done, mark as idle and start next task
-        task_manager.current_task = None
-        task_manager.status = task_manager.status.__class__("idle")
+        # Task is done, finish current task and start next task
+        task_manager.finish_current_task()
         task_manager.start_next_task()
         # Update status after starting next task
         status = task_manager.get_status()

@@ -1,0 +1,4 @@
+logs/
+task_files/
+__pycache__/
+.vscode/
