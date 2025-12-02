@@ -1,23 +1,8 @@
 {
-  "open_excel": {
-    "file": "open_excel.json",
-    "description": "打开 Excel 程序",
+  "generate_test_file": {
+    "file": "generate_test_file.json",
+    "description": "生成测试文件",
     "timeout": 4
-  },
-  "export_report": {
-    "file": "export_report.json",
-    "description": "导出报表",
-    "timeout": 5
-  },
-  "open_json": {
-    "file": "open_json.json",
-    "description": "打开 JSON 文件",
-    "timeout": 10
-  },
-  "export_json": {
-    "file": "export_json.json",
-    "description": "导出 JSON 文件",
-    "timeout": 30
   }
 }
 
