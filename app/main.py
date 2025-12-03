@@ -42,8 +42,8 @@ async def create_tasks(request: TaskCreateRequest):
         raise HTTPException(status_code=400, detail="No valid task_ids provided")
     
     # Start next task if no task is currently running
-    if task_manager.status.value == "idle":
-        task_manager.start_next_task()
+    # start_next_task will check if task is already running, so we can call it directly
+    task_manager.start_next_task()
     
     return {
         "queued": True,
@@ -55,18 +55,9 @@ async def create_tasks(request: TaskCreateRequest):
 async def get_task_status():
     """
     Get current task status including task ID, status, and log content
+    Background thread handles task completion checking and automatic task switching
     """
-    status = task_manager.get_status()
-    
-    # Check if current task is done and start next one if needed
-    if task_manager.status.value == "running" and task_manager.check_if_current_task_done():
-        # Task is done, finish current task and start next task
-        task_manager.finish_current_task()
-        task_manager.start_next_task()
-        # Update status after starting next task
-        status = task_manager.get_status()
-    
-    return status
+    return task_manager.get_status()
 
 
 if __name__ == "__main__":
