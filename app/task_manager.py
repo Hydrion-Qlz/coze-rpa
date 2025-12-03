@@ -1,9 +1,13 @@
 import json
+import logging
 import threading
 import time
 from pathlib import Path
 from typing import Optional, List, Dict
 from enum import Enum
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class TaskStatus(str, Enum):
@@ -51,7 +55,7 @@ class TaskManager:
         # Start background monitoring thread
         self._monitor_thread = threading.Thread(target=self._monitor_tasks, daemon=True)
         self._monitor_thread.start()
-        print("Background task monitor thread started")
+        logger.info("Background task monitor thread started")
     
     def load_task_mapping(self):
         """Load task mapping from JSON file"""
@@ -77,11 +81,12 @@ class TaskManager:
             if task_id in self.task_mapping:
                 valid_tasks.append(task_id)
             else:
-                # Log warning for invalid task_id
-                print(f"Warning: Task ID '{task_id}' not found in task_mapping")
+                logger.warning(f"Task ID '{task_id}' not found in task_mapping")
         
         with self._lock:
             self.queue.extend(valid_tasks)
+        if valid_tasks:
+            logger.info(f"Added {len(valid_tasks)} task(s) to queue: {valid_tasks}")
         return len(valid_tasks)
     
     def start_next_task(self) -> bool:
@@ -106,7 +111,7 @@ class TaskManager:
         
         # Get task config from mapping
         if task_id not in self.task_mapping:
-            print(f"Error: Task ID '{task_id}' not found in task_mapping")
+            logger.error(f"Task ID '{task_id}' not found in task_mapping")
             with self._lock:
                 self.current_task = None
                 self.status = TaskStatus.IDLE
@@ -117,7 +122,7 @@ class TaskManager:
         trigger_file_path = self.task_files_dir / trigger_filename
         trigger_file_path.touch()
         
-        print(f"Started task '{task_id}', created trigger file: {trigger_filename}")
+        logger.info(f"Started task '{task_id}', created trigger file: {trigger_filename}")
         return True
     
     def check_if_current_task_done(self) -> bool:
@@ -141,9 +146,10 @@ class TaskManager:
                 with open(log_file_path, 'r', encoding='utf-8') as log_file:
                     lines = log_file.readlines()
                     if lines and "结束执行脚本" in lines[-1]:
+                        logger.info(f"Task '{current_task}' completed (found '结束执行脚本' in log)")
                         return True
             except Exception as e:
-                print(f"Error reading log file: {str(e)}")
+                logger.error(f"Error reading log file for task '{current_task}': {str(e)}")
         return False
     
     def get_status(self) -> Dict:
@@ -201,9 +207,11 @@ class TaskManager:
         if trigger_file_path.exists():
             try:
                 trigger_file_path.unlink()
-                print(f"Deleted trigger file for completed task '{task_id}': {trigger_filename}")
+                logger.info(f"Deleted trigger file for completed task '{task_id}': {trigger_filename}")
             except Exception as e:
-                print(f"Error deleting trigger file: {str(e)}")
+                logger.error(f"Error deleting trigger file for task '{task_id}': {str(e)}")
+        else:
+            logger.warning(f"Trigger file not found for task '{task_id}': {trigger_filename}")
     
     def get_available_tasks(self) -> List[Dict]:
         """
@@ -226,6 +234,7 @@ class TaskManager:
         Background thread to monitor task completion
         Checks every 10 seconds if current task is done
         """
+        logger.debug("Task monitor thread started monitoring")
         while True:
             try:
                 time.sleep(10)  # Check every 10 seconds
@@ -236,10 +245,14 @@ class TaskManager:
                 
                 # Only check if there's a running task
                 if status == TaskStatus.RUNNING and current_task:
+                    logger.debug(f"Checking completion status for task '{current_task}'")
                     if self.check_if_current_task_done():
                         # Task is done, finish current task and start next task
+                        logger.info(f"Task '{current_task}' is done, finishing and starting next task")
                         self.finish_current_task()
-                        self.start_next_task()
+                        next_started = self.start_next_task()
+                        if not next_started:
+                            logger.info("No more tasks in queue, waiting for new tasks")
             except Exception as e:
-                print(f"Error in monitor thread: {str(e)}")
+                logger.error(f"Error in monitor thread: {str(e)}", exc_info=True)
 
