@@ -62,6 +62,7 @@ class TaskManager:
             Number of tasks added
         """
         valid_tasks = []
+        self.load_task_mapping()
         for task_id in task_ids:
             if task_id in self.task_mapping:
                 valid_tasks.append(task_id)
@@ -182,6 +183,7 @@ class TaskManager:
             List of task dictionaries with id and description
         """
         tasks = []
+        self.load_task_mapping()
         for task_id, task_config in self.task_mapping.items():
             tasks.append({
                 "id": task_id,
