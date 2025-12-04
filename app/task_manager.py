@@ -148,15 +148,15 @@ class TaskManager:
         if not current_task:
             return False
         
-        # Check if log file last line contains "结束执行脚本"
+        # Check if log file last line contains "脚本执行成功"
         log_filename = f"{current_task}.txt"
         log_file_path = self.logs_dir / log_filename
         if log_file_path.exists():
             try:
                 with open(log_file_path, 'r', encoding='utf-8') as log_file:
                     lines = log_file.readlines()
-                    if lines and "结束执行脚本" in lines[-1]:
-                        logger.info(f"Task '{current_task}' completed (found '结束执行脚本' in log)")
+                    if lines and "脚本执行成功" in lines[-1]:
+                        logger.info(f"Task '{current_task}' completed (found '脚本执行成功' in log)")
                         return True
             except Exception as e:
                 logger.error(f"Error reading log file for task '{current_task}': {str(e)}")

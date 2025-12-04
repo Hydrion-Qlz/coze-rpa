@@ -13,6 +13,9 @@
   },
   "importData": {
     "description": "导入数据"
+  },
+  "exception_test": {
+    "description": "异常测试"
   }
 }
 
