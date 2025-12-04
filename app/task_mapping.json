@@ -1,6 +1,18 @@
 {
   "generate_test_file": {
     "description": "生成测试文件"
+  },
+  "archive_logs": {
+    "description": "归档日志文件"
+  },
+  "cleanup_temp_files": {
+    "description": "清理临时文件"
+  },
+  "export_report": {
+    "description": "导出报表"
+  },
+  "importData": {
+    "description": "导入数据"
   }
 }
 

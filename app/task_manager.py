@@ -117,6 +117,16 @@ class TaskManager:
                 self.status = TaskStatus.IDLE
             return False
         
+        # Check and delete existing log file if it exists
+        log_filename = f"{task_id}.txt"
+        log_file_path = self.logs_dir / log_filename
+        if log_file_path.exists():
+            try:
+                log_file_path.unlink()
+                logger.info(f"Deleted existing log file for task '{task_id}': {log_filename}")
+            except Exception as e:
+                logger.error(f"Error deleting existing log file for task '{task_id}': {str(e)}")
+        
         # Create trigger file for RPA
         trigger_filename = f"trigger.{task_id}"
         trigger_file_path = self.task_files_dir / trigger_filename
