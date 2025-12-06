@@ -49,6 +49,9 @@ class TaskManager:
         self.current_task: Optional[str] = None
         self.status: TaskStatus = TaskStatus.IDLE
         
+        # Error records storage
+        self.error_records: List[Dict] = []
+        
         # Thread lock for thread safety
         self._lock = threading.Lock()
         
@@ -135,32 +138,39 @@ class TaskManager:
         logger.info(f"Started task '{task_id}', created trigger file: {trigger_filename}")
         return True
     
-    def check_if_current_task_done(self) -> bool:
+    def check_if_current_task_done(self) -> Optional[str]:
         """
         Check if current task is done by checking log file
         
         Returns:
-            True if task is done, False otherwise
+            "success" if task completed successfully,
+            "error" if task terminated with error,
+            "un_finished" if task is not done yet
         """
         with self._lock:
             current_task = self.current_task
         
         if not current_task:
-            return False
+            return None
         
-        # Check if log file last line contains "脚本执行成功"
+        # Check if log file last line contains completion indicators
         log_filename = f"{current_task}.txt"
         log_file_path = self.logs_dir / log_filename
         if log_file_path.exists():
             try:
                 with open(log_file_path, 'r', encoding='utf-8') as log_file:
                     lines = log_file.readlines()
-                    if lines and "脚本执行成功" in lines[-1]:
-                        logger.info(f"Task '{current_task}' completed (found '脚本执行成功' in log)")
-                        return True
+                    if lines:
+                        last_line = lines[-1]
+                        if "脚本执行成功" in last_line:
+                            logger.info(f"Task '{current_task}' completed successfully (found '脚本执行成功' in log)")
+                            return "success"
+                        elif "程序异常终止" in last_line:
+                            logger.warning(f"Task '{current_task}' terminated with error (found '程序异常终止' in log)")
+                            return "error"
             except Exception as e:
                 logger.error(f"Error reading log file for task '{current_task}': {str(e)}")
-        return False
+        return "un_finished"
     
     def get_status(self) -> Dict:
         """
@@ -239,6 +249,34 @@ class TaskManager:
             })
         return tasks
     
+    def _record_task_error(self, task_id: str, description: str, log_content: str):
+        """
+        Record task error information
+        
+        Args:
+            task_id: Task ID
+            description: Task description
+            log_content: Full log content of the task
+        """
+        error_record = {
+            "task_id": task_id,
+            "description": description,
+            "log": log_content
+        }
+        with self._lock:
+            self.error_records.append(error_record)
+        logger.info(f"Recorded error for task '{task_id}': {description}")
+    
+    def get_error_records(self) -> List[Dict]:
+        """
+        Get all error records
+        
+        Returns:
+            List of error record dictionaries with task_id, description, and log
+        """
+        with self._lock:
+            return self.error_records.copy()
+    
     def _monitor_tasks(self):
         """
         Background thread to monitor task completion
@@ -256,9 +294,40 @@ class TaskManager:
                 # Only check if there's a running task
                 if status == TaskStatus.RUNNING and current_task:
                     logger.debug(f"Checking completion status for task '{current_task}'")
-                    if self.check_if_current_task_done():
-                        # Task is done, finish current task and start next task
-                        logger.info(f"Task '{current_task}' is done, finishing and starting next task")
+                    task_status = self.check_if_current_task_done()
+                    logger.debug(f"Task status: {task_status}")
+                    if task_status == "success":
+                        # Task completed successfully, finish current task and start next task
+                        logger.info(f"Task '{current_task}' completed successfully, finishing and starting next task")
+                        self.finish_current_task()
+                        next_started = self.start_next_task()
+                        if not next_started:
+                            logger.info("No more tasks in queue, waiting for new tasks")
+                    elif task_status == "error":
+                        # Task terminated with error, record error and continue with next task
+                        logger.warning(f"Task '{current_task}' terminated with error, recording error information")
+                        
+                        # Read log content for error record
+                        log_filename = f"{current_task}.txt"
+                        log_file_path = self.logs_dir / log_filename
+                        log_content = ""
+                        if log_file_path.exists():
+                            try:
+                                with open(log_file_path, 'r', encoding='utf-8') as f:
+                                    log_content = f.read()
+                            except Exception as e:
+                                logger.error(f"Error reading log file for error record: {str(e)}")
+                                log_content = f"Error reading log file: {str(e)}"
+                        
+                        # Get task description
+                        description = ""
+                        if current_task in self.task_mapping:
+                            description = self.task_mapping[current_task].get("description", "")
+                        
+                        # Record error
+                        self._record_task_error(current_task, description, log_content)
+                        
+                        # Finish current task and start next task
                         self.finish_current_task()
                         next_started = self.start_next_task()
                         if not next_started:

@@ -7,7 +7,7 @@ from task_manager import TaskManager
 
 # Configure logging with timestamp and location information
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(filename)s:%(lineno)d - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -77,6 +77,23 @@ async def get_task_status():
     status = task_manager.get_status()
     logger.debug(f"GET /tasks/status - Current task: {status.get('current_task')}, Status: {status.get('status')}")
     return status
+
+
+@app.get("/tasks/errors")
+async def get_task_errors():
+    """
+    Get all error records from tasks that terminated with errors
+    
+    Returns:
+        Dictionary with list of error records, each containing:
+        - task_id: Task ID
+        - description: Task description
+        - log: Full execution log content
+    """
+    logger.info("GET /tasks/errors - Requesting error records")
+    errors = task_manager.get_error_records()
+    logger.info(f"Returning {len(errors)} error record(s)")
+    return {"errors": errors}
 
 
 if __name__ == "__main__":
